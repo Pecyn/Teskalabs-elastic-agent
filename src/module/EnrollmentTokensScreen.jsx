@@ -1,15 +1,20 @@
-import React from 'react';
-import { Container } from 'reactstrap';
 import { useTranslation } from 'react-i18next';
+import { Container } from 'reactstrap';
 import { DataTableCard2, DateTime, CopyableInput } from 'asab_webui_components';
-import { MOCK_TOKENS } from './mockData.js';
+import { getEnrollmentTokens } from '../services/fleetApi.js';
+import { makeFleetLoader } from '../services/fleetLoader.js';
 
-const loader = async ({ params }) => {
-	const page = Number(params.p ?? 1);
-	const limit = Number(params.i ?? 20);
-	const start = (page - 1) * limit;
-	return { count: MOCK_TOKENS.length, rows: MOCK_TOKENS.slice(start, start + limit) };
+const BADGE = {
+	display: 'inline-block',
+	padding: '0.35em 0.65em',
+	fontSize: '0.75em',
+	fontWeight: 700,
+	lineHeight: 1,
+	borderRadius: '0.375rem',
+	whiteSpace: 'nowrap',
 };
+const ACTIVE_STYLE   = { ...BADGE, backgroundColor: '#198754', color: '#fff' };
+const INACTIVE_STYLE = { ...BADGE, backgroundColor: '#3d4349', color: '#fff' };
 
 const getColumns = (t) => [
 	{
@@ -54,7 +59,7 @@ const getColumns = (t) => [
 		sort: 'active',
 		colStyle: { width: '10%' },
 		render: ({ row }) => (
-			<span className={`badge ${row.active ? 'bg-success' : 'bg-secondary'}`}>
+			<span style={row.active ? ACTIVE_STYLE : INACTIVE_STYLE}>
 				{row.active ? t('ElasticAgent|Active') : t('ElasticAgent|Inactive')}
 			</span>
 		),
@@ -84,13 +89,33 @@ const getColumns = (t) => [
 	},
 ];
 
+const loader = makeFleetLoader(
+	getEnrollmentTokens,
+	{
+		name:       'name',
+		policy:     'policy_id',
+		active:     'active',
+		created_at: 'created_at',
+		expires_at: 'expiration',
+	},
+	(token) => ({
+		id:         token.id,
+		name:       token.name,
+		policy:     token.policy_id,
+		token:      token.api_key,
+		active:     token.active,
+		created_at: token.created_at,
+		expires_at: token.expiration,
+	})
+);
+
 export function EnrollmentTokensScreen() {
 	const { t } = useTranslation();
-	const columns = getColumns(t);
+
 	return (
 		<Container className="h-100">
 			<DataTableCard2
-				columns={columns}
+				columns={getColumns(t)}
 				initialLimit={20}
 				loader={loader}
 				header={

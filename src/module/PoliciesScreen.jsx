@@ -1,15 +1,8 @@
-import React from 'react';
-import { Container } from 'reactstrap';
 import { useTranslation } from 'react-i18next';
+import { Container } from 'reactstrap';
 import { DataTableCard2, DateTime } from 'asab_webui_components';
-import { MOCK_POLICIES } from './mockData.js';
-
-const loader = async ({ params }) => {
-	const page = Number(params.p ?? 1);
-	const limit = Number(params.i ?? 20);
-	const start = (page - 1) * limit;
-	return { count: MOCK_POLICIES.length, rows: MOCK_POLICIES.slice(start, start + limit) };
-};
+import { getPolicies } from '../services/fleetApi.js';
+import { makeFleetLoader } from '../services/fleetLoader.js';
 
 const getColumns = (t) => [
 	{
@@ -60,13 +53,30 @@ const getColumns = (t) => [
 	},
 ];
 
+const loader = makeFleetLoader(
+	getPolicies,
+	{
+		name:            'name',
+		description:     'description',
+		agents_enrolled: 'agents',
+		created_at:      'created_at',
+	},
+	(policy) => ({
+		id:              policy.id,
+		name:            policy.name,
+		description:     policy.description,
+		agents_enrolled: policy.agents,
+		created_at:      policy.created_at,
+	})
+);
+
 export function PoliciesScreen() {
 	const { t } = useTranslation();
-	const columns = getColumns(t);
+
 	return (
 		<Container className="h-100">
 			<DataTableCard2
-				columns={columns}
+				columns={getColumns(t)}
 				initialLimit={20}
 				loader={loader}
 				header={

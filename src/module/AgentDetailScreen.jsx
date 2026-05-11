@@ -1,22 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Container, Card, CardHeader, CardBody } from 'reactstrap';
+import { Container, Card, CardHeader, CardBody, Alert } from 'reactstrap';
 import { DateTime, CopyableInput } from 'asab_webui_components';
-import { MOCK_AGENTS } from './mockData.js';
+import { getAgentById } from '../services/fleetApi.js';
 
-const STATUS_BADGE = {
-	active: 'bg-success',
-	inactive: 'bg-secondary',
-	enrolling: 'bg-warning text-dark',
-	unenrolled: 'bg-danger',
+const BADGE = {
+	display: 'inline-block',
+	padding: '0.35em 0.65em',
+	fontSize: '0.75em',
+	fontWeight: 700,
+	lineHeight: 1,
+	borderRadius: '0.375rem',
+	whiteSpace: 'nowrap',
 };
 
+const STATUS_STYLE = {
+	online:     { ...BADGE, backgroundColor: '#198754', color: '#fff' },
+	active:     { ...BADGE, backgroundColor: '#198754', color: '#fff' },
+	offline:    { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
+	inactive:   { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
+	degraded:   { ...BADGE, backgroundColor: '#fd7e14', color: '#fff' },
+	enrolling:  { ...BADGE, backgroundColor: '#0dcaf0', color: '#000' },
+	updating:   { ...BADGE, backgroundColor: '#0d6efd', color: '#fff' },
+	unenrolled: { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
+	error:      { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
+};
+
+const UNKNOWN_STYLE = { ...BADGE, backgroundColor: '#3d4349', color: '#fff' };
+
 const STATUS_KEY = {
-	active: 'ElasticAgent|Active',
-	inactive: 'ElasticAgent|Inactive',
-	enrolling: 'ElasticAgent|Enrolling',
+	online:     'ElasticAgent|Online',
+	active:     'ElasticAgent|Active',
+	offline:    'ElasticAgent|Offline',
+	inactive:   'ElasticAgent|Inactive',
+	degraded:   'ElasticAgent|Degraded',
+	enrolling:  'ElasticAgent|Enrolling',
+	updating:   'ElasticAgent|Updating',
 	unenrolled: 'ElasticAgent|Unenrolled',
+	error:      'ElasticAgent|Error',
 };
 
 function CardBodyItem({ label, children }) {
@@ -36,11 +58,33 @@ export function AgentDetailScreen() {
 	const { t } = useTranslation();
 	const [data, setData] = useState(null);
 	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState(null);
 
 	useEffect(() => {
-		const agent = MOCK_AGENTS.find((a) => a.id === id) ?? null;
-		setData(agent);
-		setIsLoading(false);
+		getAgentById(id)
+			.then((response) => {
+				const agent = response.item;
+				const ip = Array.isArray(agent.local_metadata?.host?.ip)
+					? agent.local_metadata.host.ip.join(', ')
+					: agent.local_metadata?.host?.ip;
+				setData({
+					id: agent.id,
+					name: agent.local_metadata?.host?.hostname ?? agent.id,
+					status: agent.status,
+					hostname: agent.local_metadata?.host?.hostname,
+					ip,
+					policy: agent.policy_id,
+					version: agent.agent?.version,
+					os: agent.local_metadata?.os?.full ?? agent.local_metadata?.os?.name,
+					enrolled_at: agent.enrolled_at,
+					last_activity: agent.last_checkin,
+				});
+				setIsLoading(false);
+			})
+			.catch((err) => {
+				setError(err.message);
+				setIsLoading(false);
+			});
 	}, [id]);
 
 	if (isLoading)
@@ -72,6 +116,13 @@ export function AgentDetailScreen() {
 			</Container>
 		);
 
+	if (error)
+		return (
+			<Container className="mt-3">
+				<Alert color="danger">{error}</Alert>
+			</Container>
+		);
+
 	if (!data)
 		return (
 			<Container className="mt-3">
@@ -99,7 +150,7 @@ export function AgentDetailScreen() {
 						<i className="bi bi-pc-display me-2" />
 						{data.name}
 					</h5>
-					<span className={`badge ms-1 ${STATUS_BADGE[data.status] ?? 'bg-secondary'}`}>
+					<span className="ms-1" style={STATUS_STYLE[data.status] ?? UNKNOWN_STYLE}>
 						{t(STATUS_KEY[data.status] ?? 'ElasticAgent|Unknown')}
 					</span>
 				</CardHeader>

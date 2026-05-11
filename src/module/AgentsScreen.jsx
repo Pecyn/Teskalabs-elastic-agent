@@ -1,29 +1,44 @@
-import React from 'react';
-import { Container } from 'reactstrap';
 import { useTranslation } from 'react-i18next';
+import { Container } from 'reactstrap';
 import { Link } from 'react-router';
 import { DataTableCard2, DateTime } from 'asab_webui_components';
-import { MOCK_AGENTS } from './mockData.js';
+import { getAgents } from '../services/fleetApi.js';
+import { makeFleetLoader } from '../services/fleetLoader.js';
 
-const STATUS_BADGE = {
-	active: 'bg-success',
-	inactive: 'bg-secondary',
-	enrolling: 'bg-warning text-dark',
-	unenrolled: 'bg-danger',
+const BADGE = {
+	display: 'inline-block',
+	padding: '0.35em 0.65em',
+	fontSize: '0.75em',
+	fontWeight: 700,
+	lineHeight: 1,
+	borderRadius: '0.375rem',
+	whiteSpace: 'nowrap',
 };
+
+const STATUS_STYLE = {
+	online:     { ...BADGE, backgroundColor: '#198754', color: '#fff' },
+	active:     { ...BADGE, backgroundColor: '#198754', color: '#fff' },
+	offline:    { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
+	inactive:   { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
+	degraded:   { ...BADGE, backgroundColor: '#fd7e14', color: '#fff' },
+	enrolling:  { ...BADGE, backgroundColor: '#0dcaf0', color: '#000' },
+	updating:   { ...BADGE, backgroundColor: '#0d6efd', color: '#fff' },
+	unenrolled: { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
+	error:      { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
+};
+
+const UNKNOWN_STYLE = { ...BADGE, backgroundColor: '#3d4349', color: '#fff' };
 
 const STATUS_KEY = {
-	active: 'ElasticAgent|Active',
-	inactive: 'ElasticAgent|Inactive',
-	enrolling: 'ElasticAgent|Enrolling',
+	online:     'ElasticAgent|Online',
+	active:     'ElasticAgent|Active',
+	offline:    'ElasticAgent|Offline',
+	inactive:   'ElasticAgent|Inactive',
+	degraded:   'ElasticAgent|Degraded',
+	enrolling:  'ElasticAgent|Enrolling',
+	updating:   'ElasticAgent|Updating',
 	unenrolled: 'ElasticAgent|Unenrolled',
-};
-
-const loader = async ({ params }) => {
-	const page = Number(params.p ?? 1);
-	const limit = Number(params.i ?? 20);
-	const start = (page - 1) * limit;
-	return { count: MOCK_AGENTS.length, rows: MOCK_AGENTS.slice(start, start + limit) };
+	error:      'ElasticAgent|Error',
 };
 
 const getColumns = (t) => [
@@ -31,7 +46,7 @@ const getColumns = (t) => [
 		title: (
 			<span>
 				<i className="bi bi-pc-display me-1" />
-				{t('ElasticAgent|Agent name')}
+				{t('ElasticAgent|Host')}
 			</span>
 		),
 		sort: 'name',
@@ -52,7 +67,7 @@ const getColumns = (t) => [
 		sort: 'status',
 		colStyle: { width: '13%' },
 		render: ({ row }) => (
-			<span className={`badge ${STATUS_BADGE[row.status] ?? 'bg-secondary'}`}>
+			<span style={STATUS_STYLE[row.status] ?? UNKNOWN_STYLE}>
 				{t(STATUS_KEY[row.status] ?? 'ElasticAgent|Unknown')}
 			</span>
 		),
@@ -103,13 +118,34 @@ const getColumns = (t) => [
 	},
 ];
 
+const loader = makeFleetLoader(
+	getAgents,
+	{
+		name:          'local_metadata.host.hostname',
+		status:        'status',
+		policy:        'policy_id',
+		version:       'agent.version',
+		last_activity: 'last_checkin',
+		os:            'local_metadata.os.name',
+	},
+	(agent) => ({
+		id:            agent.id,
+		name:          agent.local_metadata?.host?.hostname ?? agent.id,
+		status:        agent.status,
+		policy:        agent.policy_id,
+		version:       agent.agent?.version,
+		last_activity: agent.last_checkin,
+		os:            agent.local_metadata?.os?.name,
+	})
+);
+
 export function AgentsScreen() {
 	const { t } = useTranslation();
-	const columns = getColumns(t);
+
 	return (
 		<Container className="h-100">
 			<DataTableCard2
-				columns={columns}
+				columns={getColumns(t)}
 				initialLimit={20}
 				loader={loader}
 				header={
