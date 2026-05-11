@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Container, Spinner, Alert } from 'reactstrap';
 import { useTranslation } from 'react-i18next';
+import { Container } from 'reactstrap';
 import { DataTableCard2, DateTime, CopyableInput } from 'asab_webui_components';
 import { getEnrollmentTokens } from '../services/fleetApi.js';
+import { makeFleetLoader } from '../services/fleetLoader.js';
 
 const BADGE = {
 	display: 'inline-block',
@@ -89,62 +89,33 @@ const getColumns = (t) => [
 	},
 ];
 
+const loader = makeFleetLoader(
+	getEnrollmentTokens,
+	{
+		name:       'name',
+		policy:     'policy_id',
+		active:     'active',
+		created_at: 'created_at',
+		expires_at: 'expiration',
+	},
+	(token) => ({
+		id:         token.id,
+		name:       token.name,
+		policy:     token.policy_id,
+		token:      token.api_key,
+		active:     token.active,
+		created_at: token.created_at,
+		expires_at: token.expiration,
+	})
+);
+
 export function EnrollmentTokensScreen() {
 	const { t } = useTranslation();
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
-	const [tokens, setTokens] = useState([]);
-
-	useEffect(() => {
-		getEnrollmentTokens()
-			.then((data) => {
-				setTokens(data.items ?? []);
-				setLoading(false);
-			})
-			.catch((err) => {
-				setError(err.message);
-				setLoading(false);
-			});
-	}, []);
-
-	const loader = async ({ params }) => {
-		const page = Number(params.p ?? 1);
-		const limit = Number(params.i ?? 20);
-		const start = (page - 1) * limit;
-		const rows = tokens.slice(start, start + limit).map((token) => ({
-			id: token.id,
-			name: token.name,
-			policy: token.policy_id,
-			token: token.api_key,
-			active: token.active,
-			created_at: token.created_at,
-			expires_at: token.expiration,
-		}));
-		return { count: tokens.length, rows };
-	};
-
-	const columns = getColumns(t);
-
-	if (loading) {
-		return (
-			<Container className="h-100 d-flex align-items-center justify-content-center">
-				<Spinner />
-			</Container>
-		);
-	}
-
-	if (error) {
-		return (
-			<Container className="h-100 pt-4">
-				<Alert color="danger">{error}</Alert>
-			</Container>
-		);
-	}
 
 	return (
 		<Container className="h-100">
 			<DataTableCard2
-				columns={columns}
+				columns={getColumns(t)}
 				initialLimit={20}
 				loader={loader}
 				header={

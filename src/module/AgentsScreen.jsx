@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Container, Spinner, Alert } from 'reactstrap';
 import { useTranslation } from 'react-i18next';
+import { Container } from 'reactstrap';
 import { Link } from 'react-router';
 import { DataTableCard2, DateTime } from 'asab_webui_components';
 import { getAgents } from '../services/fleetApi.js';
+import { makeFleetLoader } from '../services/fleetLoader.js';
 
 const BADGE = {
 	display: 'inline-block',
@@ -118,62 +118,34 @@ const getColumns = (t) => [
 	},
 ];
 
+const loader = makeFleetLoader(
+	getAgents,
+	{
+		name:          'local_metadata.host.hostname',
+		status:        'status',
+		policy:        'policy_id',
+		version:       'agent.version',
+		last_activity: 'last_checkin',
+		os:            'local_metadata.os.name',
+	},
+	(agent) => ({
+		id:            agent.id,
+		name:          agent.local_metadata?.host?.hostname ?? agent.id,
+		status:        agent.status,
+		policy:        agent.policy_id,
+		version:       agent.agent?.version,
+		last_activity: agent.last_checkin,
+		os:            agent.local_metadata?.os?.name,
+	})
+);
+
 export function AgentsScreen() {
 	const { t } = useTranslation();
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
-	const [agents, setAgents] = useState([]);
-
-	useEffect(() => {
-		getAgents()
-			.then((data) => {
-				setAgents(data.items ?? []);
-				setLoading(false);
-			})
-			.catch((err) => {
-				setError(err.message);
-				setLoading(false);
-			});
-	}, []);
-
-	const loader = async ({ params }) => {
-		const page = Number(params.p ?? 1);
-		const limit = Number(params.i ?? 20);
-		const start = (page - 1) * limit;
-		const rows = agents.slice(start, start + limit).map((agent) => ({
-			id: agent.id,
-			name: agent.local_metadata?.host?.hostname ?? agent.id,
-			status: agent.status,
-			policy: agent.policy_id,
-			version: agent.agent?.version,
-			last_activity: agent.last_checkin,
-			os: agent.local_metadata?.os?.name,
-		}));
-		return { count: agents.length, rows };
-	};
-
-	const columns = getColumns(t);
-
-	if (loading) {
-		return (
-			<Container className="h-100 d-flex align-items-center justify-content-center">
-				<Spinner />
-			</Container>
-		);
-	}
-
-	if (error) {
-		return (
-			<Container className="h-100 pt-4">
-				<Alert color="danger">{error}</Alert>
-			</Container>
-		);
-	}
 
 	return (
 		<Container className="h-100">
 			<DataTableCard2
-				columns={columns}
+				columns={getColumns(t)}
 				initialLimit={20}
 				loader={loader}
 				header={
