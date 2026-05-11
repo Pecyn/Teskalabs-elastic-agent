@@ -1,15 +1,20 @@
-import React from 'react';
-import { Container } from 'reactstrap';
+import { useState, useEffect } from 'react';
+import { Container, Spinner, Alert } from 'reactstrap';
 import { useTranslation } from 'react-i18next';
 import { DataTableCard2, DateTime, CopyableInput } from 'asab_webui_components';
-import { MOCK_TOKENS } from './mockData.js';
+import { getEnrollmentTokens } from '../services/fleetApi.js';
 
-const loader = async ({ params }) => {
-	const page = Number(params.p ?? 1);
-	const limit = Number(params.i ?? 20);
-	const start = (page - 1) * limit;
-	return { count: MOCK_TOKENS.length, rows: MOCK_TOKENS.slice(start, start + limit) };
+const BADGE = {
+	display: 'inline-block',
+	padding: '0.35em 0.65em',
+	fontSize: '0.75em',
+	fontWeight: 700,
+	lineHeight: 1,
+	borderRadius: '0.375rem',
+	whiteSpace: 'nowrap',
 };
+const ACTIVE_STYLE   = { ...BADGE, backgroundColor: '#198754', color: '#fff' };
+const INACTIVE_STYLE = { ...BADGE, backgroundColor: '#3d4349', color: '#fff' };
 
 const getColumns = (t) => [
 	{
@@ -54,7 +59,7 @@ const getColumns = (t) => [
 		sort: 'active',
 		colStyle: { width: '10%' },
 		render: ({ row }) => (
-			<span className={`badge ${row.active ? 'bg-success' : 'bg-secondary'}`}>
+			<span style={row.active ? ACTIVE_STYLE : INACTIVE_STYLE}>
 				{row.active ? t('ElasticAgent|Active') : t('ElasticAgent|Inactive')}
 			</span>
 		),
@@ -86,7 +91,56 @@ const getColumns = (t) => [
 
 export function EnrollmentTokensScreen() {
 	const { t } = useTranslation();
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
+	const [tokens, setTokens] = useState([]);
+
+	useEffect(() => {
+		getEnrollmentTokens()
+			.then((data) => {
+				setTokens(data.items ?? []);
+				setLoading(false);
+			})
+			.catch((err) => {
+				setError(err.message);
+				setLoading(false);
+			});
+	}, []);
+
+	const loader = async ({ params }) => {
+		const page = Number(params.p ?? 1);
+		const limit = Number(params.i ?? 20);
+		const start = (page - 1) * limit;
+		const rows = tokens.slice(start, start + limit).map((token) => ({
+			id: token.id,
+			name: token.name,
+			policy: token.policy_id,
+			token: token.api_key,
+			active: token.active,
+			created_at: token.created_at,
+			expires_at: token.expiration,
+		}));
+		return { count: tokens.length, rows };
+	};
+
 	const columns = getColumns(t);
+
+	if (loading) {
+		return (
+			<Container className="h-100 d-flex align-items-center justify-content-center">
+				<Spinner />
+			</Container>
+		);
+	}
+
+	if (error) {
+		return (
+			<Container className="h-100 pt-4">
+				<Alert color="danger">{error}</Alert>
+			</Container>
+		);
+	}
+
 	return (
 		<Container className="h-100">
 			<DataTableCard2

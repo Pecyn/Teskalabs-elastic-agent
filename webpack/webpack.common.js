@@ -1,15 +1,17 @@
 const path = require('path');
 const CWD = process.cwd();
+const Dotenv = require('dotenv-webpack');
 
-const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
 	plugins: [
 		new HtmlWebpackPlugin({
-			template: './public/index.html'
+			template: './public/index.html',
 		}),
-		new MiniCssExtractPlugin()
+		new MiniCssExtractPlugin(),
+		new Dotenv(),
 	],
 	module: {
 		rules: [
@@ -20,10 +22,10 @@ module.exports = {
 				use: {
 					loader: 'babel-loader',
 					options: {
-						presets: ['@babel/preset-react', '@babel/preset-env'],
-						plugins: ['@babel/plugin-transform-runtime'] // enable different features as async/await syntaxes, etc
-					}
-				}
+						presets: [['@babel/preset-react', { runtime: 'automatic' }], '@babel/preset-env'],
+						plugins: ['@babel/plugin-transform-runtime'], // enable different features as async/await syntaxes, etc
+					},
+				},
 			},
 
 			// This is to handle CSS and SCSS files
@@ -33,26 +35,26 @@ module.exports = {
 					MiniCssExtractPlugin.loader, //extracs CSS into files
 					{
 						loader: 'css-loader',
-						options: { sourceMap: true }
+						options: { sourceMap: true },
 					},
 					{
 						loader: 'postcss-loader',
-						options: { sourceMap: true }
+						options: { sourceMap: true },
 					},
 					{
 						loader: 'sass-loader',
 						options: {
 							implementation: require('sass'),
-							sourceMap: true
-						}
-					}
+							sourceMap: true,
+						},
+					},
 				],
-			}
-		]
+			},
+		],
 	},
 
 	// Remove this when above will be placed in a dedicated repositories
 	resolve: {
 		modules: [path.resolve(CWD, 'node_modules'), 'node_modules'],
-	}
+	},
 };
