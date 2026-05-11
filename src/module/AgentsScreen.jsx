@@ -46,7 +46,7 @@ const getColumns = (t) => [
 		title: (
 			<span>
 				<i className="bi bi-pc-display me-1" />
-				{t('ElasticAgent|Agent name')}
+				{t('ElasticAgent|Host')}
 			</span>
 		),
 		sort: 'name',
