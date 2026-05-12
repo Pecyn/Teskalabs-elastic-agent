@@ -1,0 +1,14 @@
+[build]
+  command = "pnpm build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/kibana-api/*"
+  to = "https://73861ca692034d4a926421afcff24bbd.europe-west3.gcp.cloud.es.io/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

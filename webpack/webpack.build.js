@@ -4,6 +4,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const { merge } = require('webpack-merge');
+const webpack = require('webpack');
 
 const commonConfig = require('./webpack.common');
 
@@ -34,6 +35,9 @@ const buildConfig = {
 				{ from: 'public/media', to: 'media' },
 				{ from: 'public/locales', to: 'locales' },
 			],
+		}),
+		new webpack.DefinePlugin({
+			'process.env.KIBANA_API_KEY': JSON.stringify(process.env.KIBANA_API_KEY),
 		}),
 	],
 	optimization: {
