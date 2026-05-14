@@ -1,9 +1,11 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Container } from 'reactstrap';
 import { Link } from 'react-router';
-import { DataTableCard2, DateTime } from 'asab_webui_components';
+import { DataTableCard2, DateTime, usePubSub } from 'asab_webui_components';
+import { useQuery } from '@tanstack/react-query';
 import { getAgents } from '../services/fleetApi.js';
-import { makeFleetLoader } from '../services/fleetLoader.js';
+import { makeFleetLoader, POLL_INTERVAL } from '../services/fleetLoader.js';
 
 const BADGE = {
 	display: 'inline-block',
@@ -16,29 +18,29 @@ const BADGE = {
 };
 
 const STATUS_STYLE = {
-	online:     { ...BADGE, backgroundColor: '#198754', color: '#fff' },
-	active:     { ...BADGE, backgroundColor: '#198754', color: '#fff' },
-	offline:    { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
-	inactive:   { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
-	degraded:   { ...BADGE, backgroundColor: '#fd7e14', color: '#fff' },
-	enrolling:  { ...BADGE, backgroundColor: '#0dcaf0', color: '#000' },
-	updating:   { ...BADGE, backgroundColor: '#0d6efd', color: '#fff' },
+	online: { ...BADGE, backgroundColor: '#198754', color: '#fff' },
+	active: { ...BADGE, backgroundColor: '#198754', color: '#fff' },
+	offline: { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
+	inactive: { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
+	degraded: { ...BADGE, backgroundColor: '#fd7e14', color: '#fff' },
+	enrolling: { ...BADGE, backgroundColor: '#0dcaf0', color: '#000' },
+	updating: { ...BADGE, backgroundColor: '#0d6efd', color: '#fff' },
 	unenrolled: { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
-	error:      { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
+	error: { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
 };
 
 const UNKNOWN_STYLE = { ...BADGE, backgroundColor: '#3d4349', color: '#fff' };
 
 const STATUS_KEY = {
-	online:     'ElasticAgent|Online',
-	active:     'ElasticAgent|Active',
-	offline:    'ElasticAgent|Offline',
-	inactive:   'ElasticAgent|Inactive',
-	degraded:   'ElasticAgent|Degraded',
-	enrolling:  'ElasticAgent|Enrolling',
-	updating:   'ElasticAgent|Updating',
+	online: 'ElasticAgent|Online',
+	active: 'ElasticAgent|Active',
+	offline: 'ElasticAgent|Offline',
+	inactive: 'ElasticAgent|Inactive',
+	degraded: 'ElasticAgent|Degraded',
+	enrolling: 'ElasticAgent|Enrolling',
+	updating: 'ElasticAgent|Updating',
 	unenrolled: 'ElasticAgent|Unenrolled',
-	error:      'ElasticAgent|Error',
+	error: 'ElasticAgent|Error',
 };
 
 const getColumns = (t) => [
@@ -121,26 +123,39 @@ const getColumns = (t) => [
 const loader = makeFleetLoader(
 	getAgents,
 	{
-		name:          'local_metadata.host.hostname',
-		status:        'status',
-		policy:        'policy_id',
-		version:       'agent.version',
+		name: 'local_metadata.host.hostname',
+		status: 'status',
+		policy: 'policy_id',
+		version: 'agent.version',
 		last_activity: 'last_checkin',
-		os:            'local_metadata.os.name',
+		os: 'local_metadata.os.name',
 	},
 	(agent) => ({
-		id:            agent.id,
-		name:          agent.local_metadata?.host?.hostname ?? agent.id,
-		status:        agent.status,
-		policy:        agent.policy_id,
-		version:       agent.agent?.version,
+		id: agent.id,
+		name: agent.local_metadata?.host?.hostname ?? agent.id,
+		status: agent.status,
+		policy: agent.policy_id,
+		version: agent.agent?.version,
 		last_activity: agent.last_checkin,
-		os:            agent.local_metadata?.os?.name,
-	})
+		os: agent.local_metadata?.os?.name,
+	}),
 );
 
 export function AgentsScreen() {
 	const { t } = useTranslation();
+	const { app } = usePubSub();
+	const firstTick = useRef(true);
+	const { dataUpdatedAt } = useQuery({
+		queryKey: ['agents-tick'],
+		queryFn: () => Promise.resolve(Date.now()),
+		refetchInterval: POLL_INTERVAL,
+		staleTime: 0,
+	});
+
+	useEffect(() => {
+		if (firstTick.current) { firstTick.current = false; return; }
+		app.PubSub.publish('Application.reload!', { mode: 'transparent' });
+	}, [dataUpdatedAt]);
 
 	return (
 		<Container className="h-100">

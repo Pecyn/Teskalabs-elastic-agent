@@ -1,8 +1,10 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Container } from 'reactstrap';
-import { DataTableCard2, DateTime, CopyableInput } from 'asab_webui_components';
+import { DataTableCard2, DateTime, CopyableInput, usePubSub } from 'asab_webui_components';
+import { useQuery } from '@tanstack/react-query';
 import { getEnrollmentTokens } from '../services/fleetApi.js';
-import { makeFleetLoader } from '../services/fleetLoader.js';
+import { makeFleetLoader, POLL_INTERVAL } from '../services/fleetLoader.js';
 
 const BADGE = {
 	display: 'inline-block',
@@ -13,7 +15,7 @@ const BADGE = {
 	borderRadius: '0.375rem',
 	whiteSpace: 'nowrap',
 };
-const ACTIVE_STYLE   = { ...BADGE, backgroundColor: '#198754', color: '#fff' };
+const ACTIVE_STYLE = { ...BADGE, backgroundColor: '#198754', color: '#fff' };
 const INACTIVE_STYLE = { ...BADGE, backgroundColor: '#3d4349', color: '#fff' };
 
 const getColumns = (t) => [
@@ -85,32 +87,49 @@ const getColumns = (t) => [
 		sort: 'expires_at',
 		colStyle: { width: '12%' },
 		render: ({ row }) =>
-			row.expires_at ? <DateTime value={row.expires_at} /> : <span className="text-muted">—</span>,
+			row.expires_at ? (
+				<DateTime value={row.expires_at} />
+			) : (
+				<span className="text-muted">—</span>
+			),
 	},
 ];
 
 const loader = makeFleetLoader(
 	getEnrollmentTokens,
 	{
-		name:       'name',
-		policy:     'policy_id',
-		active:     'active',
+		name: 'name',
+		policy: 'policy_id',
+		active: 'active',
 		created_at: 'created_at',
 		expires_at: 'expiration',
 	},
 	(token) => ({
-		id:         token.id,
-		name:       token.name,
-		policy:     token.policy_id,
-		token:      token.api_key,
-		active:     token.active,
+		id: token.id,
+		name: token.name,
+		policy: token.policy_id,
+		token: token.api_key,
+		active: token.active,
 		created_at: token.created_at,
 		expires_at: token.expiration,
-	})
+	}),
 );
 
 export function EnrollmentTokensScreen() {
 	const { t } = useTranslation();
+	const { app } = usePubSub();
+	const firstTick = useRef(true);
+	const { dataUpdatedAt } = useQuery({
+		queryKey: ['enrollment-tokens-tick'],
+		queryFn: () => Promise.resolve(Date.now()),
+		refetchInterval: POLL_INTERVAL,
+		staleTime: 0,
+	});
+
+	useEffect(() => {
+		if (firstTick.current) { firstTick.current = false; return; }
+		app.PubSub.publish('Application.reload!', { mode: 'transparent' });
+	}, [dataUpdatedAt]);
 
 	return (
 		<Container className="h-100">
