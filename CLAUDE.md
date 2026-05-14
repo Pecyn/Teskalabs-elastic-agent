@@ -161,6 +161,12 @@ Add to the `modules` array in `index.jsx` as needed:
 
 ---
 
+## DataTableCard2
+
+See [src/module/CLAUDE.md](src/module/CLAUDE.md) for full usage reference.
+
+---
+
 ## Config reference
 
 ```js
