@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Container, Card, CardHeader, CardBody, Alert } from 'reactstrap';
 import { DateTime, CopyableInput } from 'asab_webui_components';
 import { getAgentById } from '../services/fleetApi.js';
+import { POLL_INTERVAL } from '../services/fleetLoader.js';
 
 const BADGE = {
 	display: 'inline-block',
@@ -16,29 +17,29 @@ const BADGE = {
 };
 
 const STATUS_STYLE = {
-	online:     { ...BADGE, backgroundColor: '#198754', color: '#fff' },
-	active:     { ...BADGE, backgroundColor: '#198754', color: '#fff' },
-	offline:    { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
-	inactive:   { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
-	degraded:   { ...BADGE, backgroundColor: '#fd7e14', color: '#fff' },
-	enrolling:  { ...BADGE, backgroundColor: '#0dcaf0', color: '#000' },
-	updating:   { ...BADGE, backgroundColor: '#0d6efd', color: '#fff' },
+	online: { ...BADGE, backgroundColor: '#198754', color: '#fff' },
+	active: { ...BADGE, backgroundColor: '#198754', color: '#fff' },
+	offline: { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
+	inactive: { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
+	degraded: { ...BADGE, backgroundColor: '#fd7e14', color: '#fff' },
+	enrolling: { ...BADGE, backgroundColor: '#0dcaf0', color: '#000' },
+	updating: { ...BADGE, backgroundColor: '#0d6efd', color: '#fff' },
 	unenrolled: { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
-	error:      { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
+	error: { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
 };
 
 const UNKNOWN_STYLE = { ...BADGE, backgroundColor: '#3d4349', color: '#fff' };
 
 const STATUS_KEY = {
-	online:     'ElasticAgent|Online',
-	active:     'ElasticAgent|Active',
-	offline:    'ElasticAgent|Offline',
-	inactive:   'ElasticAgent|Inactive',
-	degraded:   'ElasticAgent|Degraded',
-	enrolling:  'ElasticAgent|Enrolling',
-	updating:   'ElasticAgent|Updating',
+	online: 'ElasticAgent|Online',
+	active: 'ElasticAgent|Active',
+	offline: 'ElasticAgent|Offline',
+	inactive: 'ElasticAgent|Inactive',
+	degraded: 'ElasticAgent|Degraded',
+	enrolling: 'ElasticAgent|Enrolling',
+	updating: 'ElasticAgent|Updating',
 	unenrolled: 'ElasticAgent|Unenrolled',
-	error:      'ElasticAgent|Error',
+	error: 'ElasticAgent|Error',
 };
 
 function CardBodyItem({ label, children }) {
@@ -56,38 +57,31 @@ export function AgentDetailScreen() {
 	const location = useLocation();
 	const cameFromAgents = location.state?.from === 'agents';
 	const { t } = useTranslation();
-	const [data, setData] = useState(null);
-	const [isLoading, setIsLoading] = useState(true);
-	const [error, setError] = useState(null);
+	const { data, isPending, error } = useQuery({
+		queryKey: ['agent', id],
+		queryFn: () => getAgentById(id),
+		refetchInterval: POLL_INTERVAL,
+		select: (response) => {
+			const agent = response.item;
+			const ip = Array.isArray(agent.local_metadata?.host?.ip)
+				? agent.local_metadata.host.ip.join(', ')
+				: agent.local_metadata?.host?.ip;
+			return {
+				id: agent.id,
+				name: agent.local_metadata?.host?.hostname ?? agent.id,
+				status: agent.status,
+				hostname: agent.local_metadata?.host?.hostname,
+				ip,
+				policy: agent.policy_id,
+				version: agent.agent?.version,
+				os: agent.local_metadata?.os?.full ?? agent.local_metadata?.os?.name,
+				enrolled_at: agent.enrolled_at,
+				last_activity: agent.last_checkin,
+			};
+		},
+	});
 
-	useEffect(() => {
-		getAgentById(id)
-			.then((response) => {
-				const agent = response.item;
-				const ip = Array.isArray(agent.local_metadata?.host?.ip)
-					? agent.local_metadata.host.ip.join(', ')
-					: agent.local_metadata?.host?.ip;
-				setData({
-					id: agent.id,
-					name: agent.local_metadata?.host?.hostname ?? agent.id,
-					status: agent.status,
-					hostname: agent.local_metadata?.host?.hostname,
-					ip,
-					policy: agent.policy_id,
-					version: agent.agent?.version,
-					os: agent.local_metadata?.os?.full ?? agent.local_metadata?.os?.name,
-					enrolled_at: agent.enrolled_at,
-					last_activity: agent.last_checkin,
-				});
-				setIsLoading(false);
-			})
-			.catch((err) => {
-				setError(err.message);
-				setIsLoading(false);
-			});
-	}, [id]);
-
-	if (isLoading)
+	if (isPending)
 		return (
 			<Container className="mt-3">
 				<Card>
@@ -119,19 +113,7 @@ export function AgentDetailScreen() {
 	if (error)
 		return (
 			<Container className="mt-3">
-				<Alert color="danger">{error}</Alert>
-			</Container>
-		);
-
-	if (!data)
-		return (
-			<Container className="mt-3">
-				<Card>
-					<CardHeader />
-					<CardBody>
-						<dl className="mb-0" />
-					</CardBody>
-				</Card>
+				<Alert color="danger">{error.message}</Alert>
 			</Container>
 		);
 
@@ -142,7 +124,9 @@ export function AgentDetailScreen() {
 					<button
 						type="button"
 						className="btn btn-outline-secondary btn-sm"
-						onClick={() => (cameFromAgents ? navigate(-1) : navigate('/agents'))}
+						onClick={() =>
+							cameFromAgents ? navigate(-1) : navigate('/agents')
+						}
 					>
 						<i className="bi bi-chevron-left" />
 					</button>
@@ -150,7 +134,10 @@ export function AgentDetailScreen() {
 						<i className="bi bi-pc-display me-2" />
 						{data.name}
 					</h5>
-					<span className="ms-1" style={STATUS_STYLE[data.status] ?? UNKNOWN_STYLE}>
+					<span
+						className="ms-1"
+						style={STATUS_STYLE[data.status] ?? UNKNOWN_STYLE}
+					>
 						{t(STATUS_KEY[data.status] ?? 'ElasticAgent|Unknown')}
 					</span>
 				</CardHeader>

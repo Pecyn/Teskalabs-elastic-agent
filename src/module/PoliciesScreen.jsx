@@ -1,8 +1,10 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Container } from 'reactstrap';
-import { DataTableCard2, DateTime } from 'asab_webui_components';
+import { DataTableCard2, DateTime, usePubSub } from 'asab_webui_components';
+import { useQuery } from '@tanstack/react-query';
 import { getPolicies } from '../services/fleetApi.js';
-import { makeFleetLoader } from '../services/fleetLoader.js';
+import { makeFleetLoader, POLL_INTERVAL } from '../services/fleetLoader.js';
 
 const getColumns = (t) => [
 	{
@@ -56,22 +58,35 @@ const getColumns = (t) => [
 const loader = makeFleetLoader(
 	getPolicies,
 	{
-		name:            'name',
-		description:     'description',
+		name: 'name',
+		description: 'description',
 		agents_enrolled: 'agents',
-		created_at:      'created_at',
+		created_at: 'created_at',
 	},
 	(policy) => ({
-		id:              policy.id,
-		name:            policy.name,
-		description:     policy.description,
+		id: policy.id,
+		name: policy.name,
+		description: policy.description,
 		agents_enrolled: policy.agents,
-		created_at:      policy.created_at,
-	})
+		created_at: policy.created_at,
+	}),
 );
 
 export function PoliciesScreen() {
 	const { t } = useTranslation();
+	const { app } = usePubSub();
+	const firstTick = useRef(true);
+	const { dataUpdatedAt } = useQuery({
+		queryKey: ['policies-tick'],
+		queryFn: () => Promise.resolve(Date.now()),
+		refetchInterval: POLL_INTERVAL,
+		staleTime: 0,
+	});
+
+	useEffect(() => {
+		if (firstTick.current) { firstTick.current = false; return; }
+		app.PubSub.publish('Application.reload!', { mode: 'transparent' });
+	}, [dataUpdatedAt]);
 
 	return (
 		<Container className="h-100">

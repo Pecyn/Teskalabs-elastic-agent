@@ -1,3 +1,5 @@
+export const POLL_INTERVAL = 30_000;
+
 // DataTable params (p, i, s{field}=a|d, f) → Fleet API params (page, perPage, sort_field, sort_order, kuery)
 export function makeFleetLoader(apiFn, sortFieldMap, mapRow) {
 	return async ({ params }) => {

@@ -1,9 +1,12 @@
 import React from "react";
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const root = createRoot(document.getElementById('app'));
 import { Application, I18nModule, AboutModule } from 'asab_webui_shell';
+
+const queryClient = new QueryClient();
 
 (async function init() {
 	// Dynamically import your module(s)
@@ -43,9 +46,11 @@ import { Application, I18nModule, AboutModule } from 'asab_webui_shell';
 
 	root.render(
 		<HashRouter>
-			<Application
-				configdefaults={config}
-				modules={[I18nModule, AboutModule, ElasticAgentModule]}
-			/>
+			<QueryClientProvider client={queryClient}>
+				<Application
+					configdefaults={config}
+					modules={[I18nModule, AboutModule, ElasticAgentModule]}
+				/>
+			</QueryClientProvider>
 		</HashRouter>,);
 })();
