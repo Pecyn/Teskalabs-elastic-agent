@@ -42,6 +42,16 @@ export function getPolicies(params = {}) {
 	return request(`/api/fleet/agent_policies${qs ? `?${qs}` : ''}`);
 }
 
+export function getPolicyById(id) {
+	return request(`/api/fleet/agent_policies/${id}`);
+}
+
+export const getPolicyFull = (policyId) =>
+	request(`/api/fleet/agent_policies/${policyId}/full`);
+
+export const getAgentsByPolicy = (policyId) =>
+	request(`/api/fleet/agents?kuery=(fleet-agents.policy_id:"${policyId}")&perPage=10000&showInactive=false`);
+
 export async function getAgentLogs(agentId) {
 	const res = await fetch('/es-api/logs-elastic_agent-*/_search?ignore_unavailable=true', {
 		method: 'POST',
