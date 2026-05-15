@@ -42,6 +42,38 @@ export function getPolicies(params = {}) {
 	return request(`/api/fleet/agent_policies${qs ? `?${qs}` : ''}`);
 }
 
+export async function getAgentLogs(agentId) {
+	const res = await fetch('/es-api/logs-elastic_agent-*/_search?ignore_unavailable=true', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `ApiKey ${process.env.ELASTICSEARCH_AGENT_LOGS_API_KEY}`,
+		},
+		body: JSON.stringify({
+			query: {
+				bool: {
+					filter: [
+						{ term: { 'elastic_agent.id': agentId } },
+						{ range: { '@timestamp': { gte: 'now-1d' } } },
+					],
+				},
+			},
+			sort: [{ '@timestamp': { order: 'desc' } }],
+			size: 100,
+			_source: ['@timestamp', 'message', 'log.level', 'component.id', 'error.message'],
+		}),
+	});
+	if (!res.ok) throw new Error(`Elasticsearch error: ${res.status} ${res.statusText}`);
+	const data = await res.json();
+	return data.hits.hits.map(h => ({
+		timestamp: h._source['@timestamp'],
+		level:     h._source.log?.level,
+		component: h._source.component?.id,
+		message:   h._source.message,
+		error:     h._source.error?.message,
+	}));
+}
+
 export function getEnrollmentTokens(params = {}) {
 	const q = new URLSearchParams();
 	if (params.page)       q.set('page', params.page);
