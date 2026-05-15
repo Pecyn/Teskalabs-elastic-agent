@@ -1,45 +1,19 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Container, Card, CardHeader, CardBody, Alert } from 'reactstrap';
+import { Container, Card, CardHeader, CardBody, Alert, Nav, NavItem, NavLink } from 'reactstrap';
 import { DateTime, CopyableInput } from 'asab_webui_components';
-import { getAgentById } from '../services/fleetApi.js';
+import { getAgentById, getAgentLogs } from '../services/fleetApi.js';
 import { POLL_INTERVAL } from '../services/fleetLoader.js';
+import { STATUS_STYLE, UNKNOWN_STYLE, STATUS_KEY } from './agentStatus.js';
 
-const BADGE = {
-	display: 'inline-block',
-	padding: '0.35em 0.65em',
-	fontSize: '0.75em',
-	fontWeight: 700,
-	lineHeight: 1,
-	borderRadius: '0.375rem',
-	whiteSpace: 'nowrap',
-};
-
-const STATUS_STYLE = {
-	online: { ...BADGE, backgroundColor: '#198754', color: '#fff' },
-	active: { ...BADGE, backgroundColor: '#198754', color: '#fff' },
-	offline: { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
-	inactive: { ...BADGE, backgroundColor: '#3d4349', color: '#fff' },
-	degraded: { ...BADGE, backgroundColor: '#fd7e14', color: '#fff' },
-	enrolling: { ...BADGE, backgroundColor: '#0dcaf0', color: '#000' },
-	updating: { ...BADGE, backgroundColor: '#0d6efd', color: '#fff' },
-	unenrolled: { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
-	error: { ...BADGE, backgroundColor: '#dc3545', color: '#fff' },
-};
-
-const UNKNOWN_STYLE = { ...BADGE, backgroundColor: '#3d4349', color: '#fff' };
-
-const STATUS_KEY = {
-	online: 'ElasticAgent|Online',
-	active: 'ElasticAgent|Active',
-	offline: 'ElasticAgent|Offline',
-	inactive: 'ElasticAgent|Inactive',
-	degraded: 'ElasticAgent|Degraded',
-	enrolling: 'ElasticAgent|Enrolling',
-	updating: 'ElasticAgent|Updating',
-	unenrolled: 'ElasticAgent|Unenrolled',
-	error: 'ElasticAgent|Error',
+const LEVEL_COLOR = {
+	debug:   'secondary',
+	info:    'info',
+	warning: 'warning',
+	warn:    'warning',
+	error:   'danger',
 };
 
 function CardBodyItem({ label, children }) {
@@ -51,12 +25,124 @@ function CardBodyItem({ label, children }) {
 	);
 }
 
+function AgentDetailSkeleton() {
+	return (
+		<Container className="mt-3">
+			<Card>
+				<CardHeader>
+					<h5 className="mb-0 placeholder-glow">
+						<span className="placeholder col-3" />
+					</h5>
+				</CardHeader>
+				<CardBody>
+					<dl className="mb-0 placeholder-glow">
+						{Array(7).fill(0).map((_, i) => (
+							<div key={i} className="row align-items-center mb-1">
+								<dt className="col-sm-3">
+									<span className="placeholder col-6" />
+								</dt>
+								<dd className="col-sm-9 mb-0">
+									<span className="placeholder col-12" />
+								</dd>
+							</div>
+						))}
+					</dl>
+				</CardBody>
+			</Card>
+		</Container>
+	);
+}
+
+function LogsSkeleton() {
+	return (
+		<div className="placeholder-glow">
+			{Array(6).fill(0).map((_, i) => (
+				<div key={i} className="placeholder col-12 mb-2" style={{ height: 32 }} />
+			))}
+		</div>
+	);
+}
+
+function LogsTab({ agentId }) {
+	const { t } = useTranslation();
+
+	const { data, isPending, isFetching, error } = useQuery({
+		queryKey: ['agent-logs', agentId],
+		queryFn:  () => getAgentLogs(agentId),
+		refetchInterval: 5_000,
+	});
+
+	if (isPending) return <LogsSkeleton />;
+
+	if (error) {
+		return <Alert color="danger">{error.message}</Alert>;
+	}
+
+	return (
+		<>
+			<div className="d-flex align-items-center justify-content-between mb-2">
+				<small className="text-muted">
+					{data.length} {t('ElasticAgent|documents')}
+				</small>
+				{isFetching && (
+					<small className="text-muted">
+						<span
+							className="spinner-border spinner-border-sm me-1"
+							role="status"
+							aria-hidden="true"
+						/>
+						{t('ElasticAgent|Updating…')}
+					</small>
+				)}
+			</div>
+			<table className="table table-sm table-hover mb-0">
+				<colgroup>
+					<col style={{ width: '17%' }} />
+					<col style={{ width: '8%' }} />
+					<col style={{ width: '15%' }} />
+					<col style={{ width: '42%' }} />
+					<col style={{ width: '18%' }} />
+				</colgroup>
+				<thead>
+					<tr>
+						<th>{t('ElasticAgent|Timestamp')}</th>
+						<th>{t('ElasticAgent|Level')}</th>
+						<th>{t('ElasticAgent|Component')}</th>
+						<th>{t('ElasticAgent|Message')}</th>
+						<th>{t('ElasticAgent|Error')}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{data.map((row, i) => (
+						<tr key={i}>
+							<td className="text-nowrap">
+								<DateTime value={row.timestamp} />
+							</td>
+							<td>
+								{row.level && (
+									<span className={`badge text-bg-${LEVEL_COLOR[row.level] ?? 'secondary'}`}>
+										{row.level}
+									</span>
+								)}
+							</td>
+							<td><code>{row.component}</code></td>
+							<td className="text-break">{row.message}</td>
+							<td className="text-break text-danger">{row.error}</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</>
+	);
+}
+
 export function AgentDetailScreen() {
 	const { id } = useParams();
 	const navigate = useNavigate();
 	const location = useLocation();
 	const cameFromAgents = location.state?.from === 'agents';
 	const { t } = useTranslation();
+	const [tab, setTab] = useState('details');
 	const { data, isPending, error } = useQuery({
 		queryKey: ['agent', id],
 		queryFn: () => getAgentById(id),
@@ -81,34 +167,7 @@ export function AgentDetailScreen() {
 		},
 	});
 
-	if (isPending)
-		return (
-			<Container className="mt-3">
-				<Card>
-					<CardHeader>
-						<h5 className="mb-0 placeholder-glow">
-							<span className="placeholder col-3" />
-						</h5>
-					</CardHeader>
-					<CardBody>
-						<dl className="mb-0 placeholder-glow">
-							{Array(7)
-								.fill(0)
-								.map((_, i) => (
-									<div key={i} className="row align-items-center mb-1">
-										<dt className="col-sm-3">
-											<span className="placeholder col-6" />
-										</dt>
-										<dd className="col-sm-9 mb-0">
-											<span className="placeholder col-12" />
-										</dd>
-									</div>
-								))}
-						</dl>
-					</CardBody>
-				</Card>
-			</Container>
-		);
+	if (isPending) return <AgentDetailSkeleton />;
 
 	if (error)
 		return (
@@ -120,121 +179,146 @@ export function AgentDetailScreen() {
 	return (
 		<Container className="mt-3">
 			<Card>
-				<CardHeader className="d-flex align-items-center gap-2">
-					<button
-						type="button"
-						className="btn btn-outline-secondary btn-sm"
-						onClick={() =>
-							cameFromAgents ? navigate(-1) : navigate('/agents')
-						}
-					>
-						<i className="bi bi-chevron-left" />
-					</button>
-					<h5 className="mb-0">
-						<i className="bi bi-pc-display me-2" />
-						{data.name}
-					</h5>
-					<span
-						className="ms-1"
-						style={STATUS_STYLE[data.status] ?? UNKNOWN_STYLE}
-					>
-						{t(STATUS_KEY[data.status] ?? 'ElasticAgent|Unknown')}
-					</span>
+				<CardHeader>
+					<div className="d-flex align-items-center gap-2 mb-2">
+						<button
+							type="button"
+							className="btn btn-outline-secondary btn-sm"
+							onClick={() =>
+								cameFromAgents ? navigate(-1) : navigate('/agents')
+							}
+						>
+							<i className="bi bi-chevron-left" />
+						</button>
+						<h5 className="mb-0">
+							<i className="bi bi-pc-display me-2" />
+							{data.name}
+						</h5>
+						<span
+							className="ms-1"
+							style={STATUS_STYLE[data.status] ?? UNKNOWN_STYLE}
+						>
+							{t(STATUS_KEY[data.status] ?? 'ElasticAgent|Unknown')}
+						</span>
+					</div>
+					<Nav tabs className="card-header-tabs">
+						<NavItem>
+							<NavLink
+								active={tab === 'details'}
+								onClick={() => setTab('details')}
+								style={{ cursor: 'pointer' }}
+							>
+								{t('ElasticAgent|Agent details')}
+							</NavLink>
+						</NavItem>
+						<NavItem>
+							<NavLink
+								active={tab === 'logs'}
+								onClick={() => setTab('logs')}
+								style={{ cursor: 'pointer' }}
+							>
+								{t('ElasticAgent|Logs')}
+							</NavLink>
+						</NavItem>
+					</Nav>
 				</CardHeader>
 				<CardBody>
-					<dl className="mb-0">
-						<CardBodyItem
-							label={
-								<>
-									<i className="bi bi-hash me-1" />
-									{t('ElasticAgent|ID')}
-								</>
-							}
-						>
-							<CopyableInput value={data.id} type="text" />
-						</CardBodyItem>
+					{tab === 'details' && (
+						<dl className="mb-0">
+							<CardBodyItem
+								label={
+									<>
+										<i className="bi bi-hash me-1" />
+										{t('ElasticAgent|ID')}
+									</>
+								}
+							>
+								<CopyableInput value={data.id} type="text" />
+							</CardBodyItem>
 
-						<CardBodyItem
-							label={
-								<>
-									<i className="bi bi-hdd me-1" />
-									{t('ElasticAgent|Hostname')}
-								</>
-							}
-						>
-							<CopyableInput value={data.hostname} type="text" />
-						</CardBodyItem>
+							<CardBodyItem
+								label={
+									<>
+										<i className="bi bi-hdd me-1" />
+										{t('ElasticAgent|Hostname')}
+									</>
+								}
+							>
+								<CopyableInput value={data.hostname} type="text" />
+							</CardBodyItem>
 
-						<CardBodyItem
-							label={
-								<>
-									<i className="bi bi-hdd-network me-1" />
-									{t('ElasticAgent|IP address')}
-								</>
-							}
-						>
-							<CopyableInput value={data.ip} type="text" />
-						</CardBodyItem>
+							<CardBodyItem
+								label={
+									<>
+										<i className="bi bi-hdd-network me-1" />
+										{t('ElasticAgent|IP address')}
+									</>
+								}
+							>
+								<CopyableInput value={data.ip} type="text" />
+							</CardBodyItem>
 
-						<CardBodyItem
-							label={
-								<>
-									<i className="bi bi-file-earmark-text me-1" />
-									{t('ElasticAgent|Policy')}
-								</>
-							}
-						>
-							<span>{data.policy}</span>
-						</CardBodyItem>
+							<CardBodyItem
+								label={
+									<>
+										<i className="bi bi-file-earmark-text me-1" />
+										{t('ElasticAgent|Policy')}
+									</>
+								}
+							>
+								<span>{data.policy}</span>
+							</CardBodyItem>
 
-						<CardBodyItem
-							label={
-								<>
-									<i className="bi bi-tag me-1" />
-									{t('ElasticAgent|Version')}
-								</>
-							}
-						>
-							<span>{data.version}</span>
-						</CardBodyItem>
+							<CardBodyItem
+								label={
+									<>
+										<i className="bi bi-tag me-1" />
+										{t('ElasticAgent|Version')}
+									</>
+								}
+							>
+								<span>{data.version}</span>
+							</CardBodyItem>
 
-						<CardBodyItem
-							label={
-								<>
-									<i className="bi bi-display me-1" />
-									{t('ElasticAgent|OS')}
-								</>
-							}
-						>
-							<span>{data.os}</span>
-						</CardBodyItem>
+							<CardBodyItem
+								label={
+									<>
+										<i className="bi bi-display me-1" />
+										{t('ElasticAgent|OS')}
+									</>
+								}
+							>
+								<span>{data.os}</span>
+							</CardBodyItem>
 
-						<CardBodyItem
-							label={
-								<>
-									<i className="bi bi-calendar-plus me-1" />
-									{t('ElasticAgent|Enrolled at')}
-								</>
-							}
-						>
-							<div className="py-2">
-								<DateTime value={data.enrolled_at} />
-							</div>
-						</CardBodyItem>
+							<CardBodyItem
+								label={
+									<>
+										<i className="bi bi-calendar-plus me-1" />
+										{t('ElasticAgent|Enrolled at')}
+									</>
+								}
+							>
+								<div className="py-2">
+									<DateTime value={data.enrolled_at} />
+								</div>
+							</CardBodyItem>
 
-						<CardBodyItem
-							label={
-								<>
-									<i className="bi bi-clock me-1" />
-									{t('ElasticAgent|Last activity')}
-								</>
-							}
-						>
-							<div className="py-2">
-								<DateTime value={data.last_activity} />
-							</div>
-						</CardBodyItem>
-					</dl>
+							<CardBodyItem
+								label={
+									<>
+										<i className="bi bi-clock me-1" />
+										{t('ElasticAgent|Last activity')}
+									</>
+								}
+							>
+								<div className="py-2">
+									<DateTime value={data.last_activity} />
+								</div>
+							</CardBodyItem>
+						</dl>
+					)}
+					{tab === 'logs' && <LogsTab agentId={id} />}
 				</CardBody>
 			</Card>
 		</Container>

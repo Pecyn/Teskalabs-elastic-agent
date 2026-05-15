@@ -13,13 +13,21 @@ const devConfig = {
 		historyApiFallback: true,
 		open: true,
 		hot: true,
-		// Proxy for Fleet API - to avoid CORS issues during development
+		// Proxy for APIs - to avoid CORS issues during development
 		proxy: [
 			{
 				context: ['/kibana-api'],
-				target: 'https://73861ca692034d4a926421afcff24bbd.europe-west3.gcp.cloud.es.io',
+				target:
+					'https://73861ca692034d4a926421afcff24bbd.europe-west3.gcp.cloud.es.io',
 				changeOrigin: true,
 				pathRewrite: { '^/kibana-api': '' },
+			},
+			{
+				context: ['/es-api'],
+				target:
+					'https://bfe9577b990b496196b92089acc85791.europe-west3.gcp.cloud.es.io',
+				changeOrigin: true,
+				pathRewrite: { '^/es-api': '' },
 			},
 		],
 	},

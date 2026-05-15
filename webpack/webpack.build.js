@@ -38,6 +38,12 @@ const buildConfig = {
 		}),
 		new webpack.DefinePlugin({
 			'process.env.KIBANA_API_KEY': JSON.stringify(process.env.KIBANA_API_KEY),
+			'process.env.ELASTICSEARCH_URL': JSON.stringify(
+				process.env.ELASTICSEARCH_URL,
+			),
+			'process.env.ELASTICSEARCH_AGENT_LOGS_API_KEY': JSON.stringify(
+				process.env.ELASTICSEARCH_AGENT_LOGS_API_KEY,
+			),
 		}),
 	],
 	optimization: {
