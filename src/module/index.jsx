@@ -5,6 +5,7 @@ import { Module } from 'asab_webui_components';
 import { AgentsScreen } from './AgentsScreen.jsx';
 import { AgentDetailScreen } from './AgentDetailScreen.jsx';
 import { PoliciesScreen } from './PoliciesScreen.jsx';
+import { PolicyDetailScreen } from './PolicyDetailScreen.jsx';
 import { EnrollmentTokensScreen } from './EnrollmentTokensScreen.jsx';
 
 export default class ElasticAgentModule extends Module {
@@ -33,6 +34,12 @@ export default class ElasticAgentModule extends Module {
 			path: '/policies',
 			name: 'Policies',
 			component: PoliciesScreen,
+		});
+
+		app.Router.addRoute({
+			path: '/policies/:id',
+			name: 'Policy Detail',
+			component: PolicyDetailScreen,
 		});
 
 		app.Router.addRoute({
