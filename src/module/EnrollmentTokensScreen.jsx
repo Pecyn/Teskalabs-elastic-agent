@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Container } from 'reactstrap';
 import { DataTableCard2, DateTime, CopyableInput, usePubSub } from 'asab_webui_components';
 import { useQuery } from '@tanstack/react-query';
-import { getEnrollmentTokens } from '../services/fleetApi.js';
+import { getEnrollmentTokens, getPolicies } from '../services/fleetApi.js';
 import { makeFleetLoader, POLL_INTERVAL } from '../services/fleetLoader.js';
 
 const BADGE = {
@@ -39,7 +39,12 @@ const getColumns = (t) => [
 		),
 		sort: 'policy',
 		colStyle: { width: '18%' },
-		render: ({ row }) => <span>{row.policy}</span>,
+		render: ({ row }) => (
+			<span>
+				{row.policy_name && <>{row.policy_name}<br /></>}
+				({row.policy_id})
+			</span>
+		),
 	},
 	{
 		title: (
@@ -104,10 +109,11 @@ const loader = makeFleetLoader(
 		created_at: 'created_at',
 		expires_at: 'expiration',
 	},
-	(token) => ({
+	(token, policyMap = {}) => ({
 		id: token.id,
 		name: token.name,
-		policy: token.policy_id,
+		policy_id: token.policy_id,
+		policy_name: policyMap[token.policy_id] ?? null,
 		token: token.api_key,
 		active: token.active,
 		created_at: token.created_at,
@@ -126,6 +132,18 @@ export function EnrollmentTokensScreen() {
 		staleTime: 0,
 	});
 
+	const { data: policiesData } = useQuery({
+		queryKey: ['policies-for-tokens'],
+		queryFn: () => getPolicies({ perPage: 10000 }),
+		staleTime: POLL_INTERVAL,
+	});
+
+	const policyMap = useMemo(() => {
+		const map = {};
+		(policiesData?.items ?? []).forEach(p => { map[p.id] = p.name; });
+		return map;
+	}, [policiesData]);
+
 	useEffect(() => {
 		if (firstTick.current) { firstTick.current = false; return; }
 		app.PubSub.publish('Application.reload!', { mode: 'transparent' });
@@ -137,6 +155,7 @@ export function EnrollmentTokensScreen() {
 				columns={getColumns(t)}
 				initialLimit={20}
 				loader={loader}
+				loaderParams={policyMap}
 				header={
 					<div>
 						<h5 className="mb-0">
