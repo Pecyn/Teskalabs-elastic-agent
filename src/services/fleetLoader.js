@@ -2,7 +2,7 @@ export const POLL_INTERVAL = 30_000;
 
 // DataTable params (p, i, s{field}=a|d, f) → Fleet API params (page, perPage, sort_field, sort_order, kuery)
 export function makeFleetLoader(apiFn, sortFieldMap, mapRow) {
-	return async ({ params }) => {
+	return async ({ params, loaderParams }) => {
 		const sortEntry = Object.entries(params).find(
 			([k, v]) => k.startsWith('s') && k.length > 1 && (v === 'a' || v === 'd'),
 		);
@@ -17,7 +17,7 @@ export function makeFleetLoader(apiFn, sortFieldMap, mapRow) {
 		});
 		return {
 			count: data.total ?? (data.items ?? []).length,
-			rows: (data.items ?? []).map(mapRow),
+			rows: (data.items ?? []).map(item => mapRow(item, loaderParams)),
 		};
 	};
 }

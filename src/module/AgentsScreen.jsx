@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Container } from 'reactstrap';
 import { Link } from 'react-router';
 import { DataTableCard2, DateTime, usePubSub } from 'asab_webui_components';
 import { useQuery } from '@tanstack/react-query';
-import { getAgents } from '../services/fleetApi.js';
+import { getAgents, getPolicies } from '../services/fleetApi.js';
 import { makeFleetLoader, POLL_INTERVAL } from '../services/fleetLoader.js';
 import { STATUS_STYLE, UNKNOWN_STYLE, STATUS_KEY } from './agentStatus.js';
 
@@ -48,7 +48,12 @@ const getColumns = (t) => [
 		),
 		sort: 'policy',
 		colStyle: { width: '20%' },
-		render: ({ row }) => <span>{row.policy}</span>,
+		render: ({ row }) => (
+			<span>
+				{row.policy_name && <>{row.policy_name}<br /></>}
+				({row.policy_id})
+			</span>
+		),
 	},
 	{
 		title: (
@@ -95,11 +100,12 @@ const loader = makeFleetLoader(
 		last_activity: 'last_checkin',
 		os: 'local_metadata.os.name',
 	},
-	(agent) => ({
+	(agent, policyMap = {}) => ({
 		id: agent.id,
 		name: agent.local_metadata?.host?.hostname ?? agent.id,
 		status: agent.status,
-		policy: agent.policy_id,
+		policy_id: agent.policy_id,
+		policy_name: policyMap[agent.policy_id] ?? null,
 		version: agent.agent?.version,
 		last_activity: agent.last_checkin,
 		os: agent.local_metadata?.os?.name,
@@ -117,6 +123,18 @@ export function AgentsScreen() {
 		staleTime: 0,
 	});
 
+	const { data: policiesData } = useQuery({
+		queryKey: ['policies-for-agents'],
+		queryFn: () => getPolicies({ perPage: 10000 }),
+		staleTime: POLL_INTERVAL,
+	});
+
+	const policyMap = useMemo(() => {
+		const map = {};
+		(policiesData?.items ?? []).forEach(p => { map[p.id] = p.name; });
+		return map;
+	}, [policiesData]);
+
 	useEffect(() => {
 		if (firstTick.current) { firstTick.current = false; return; }
 		app.PubSub.publish('Application.reload!', { mode: 'transparent' });
@@ -128,6 +146,7 @@ export function AgentsScreen() {
 				columns={getColumns(t)}
 				initialLimit={20}
 				loader={loader}
+				loaderParams={policyMap}
 				header={
 					<div>
 						<h5 className="mb-0">
