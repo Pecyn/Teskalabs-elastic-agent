@@ -7,30 +7,17 @@ import { getPolicies, getAgentsByPolicy } from '../services/fleetApi.js';
 import { POLL_INTERVAL } from '../services/fleetLoader.js';
 import { PolicyFullModal } from './PolicyFullModal.jsx';
 
-const SORT_FIELD_MAP = {
-	name: 'name',
-	description: 'description',
-	updated_at: 'updated_at',
-};
-
 async function loadPolicies({ params }) {
-	const sortEntry = Object.entries(params).find(
-		([k, v]) => k.startsWith('s') && k.length > 1 && (v === 'a' || v === 'd'),
-	);
-	const sortKey = sortEntry?.[0].slice(1);
-
 	const data = await getPolicies({
 		page: params.p ?? 1,
 		perPage: params.i ?? 20,
-		...(sortEntry && SORT_FIELD_MAP[sortKey] && {
-			sort_field: SORT_FIELD_MAP[sortKey],
-			sort_order: sortEntry[1] === 'a' ? 'ASC' : 'DESC',
-		}),
 		...(params.f && { kuery: params.f }),
 	});
 
 	const policies = data.items ?? [];
-	const agentResults = await Promise.all(policies.map((p) => getAgentsByPolicy(p.id)));
+	const agentResults = await Promise.all(
+		policies.map((p) => getAgentsByPolicy(p.id)),
+	);
 
 	const rows = policies.map((policy, i) => {
 		const agents = agentResults[i].list ?? agentResults[i].items ?? [];
@@ -60,7 +47,6 @@ const getColumns = (t, setOpenPolicy) => [
 				{t('ElasticAgent|Policy name')}
 			</span>
 		),
-		sort: 'name',
 		colStyle: { width: '20%' },
 		render: ({ row }) => <strong>{row.name}</strong>,
 	},
@@ -71,7 +57,6 @@ const getColumns = (t, setOpenPolicy) => [
 				{t('ElasticAgent|Description')}
 			</span>
 		),
-		sort: 'description',
 		colStyle: { width: '27%' },
 		render: ({ row }) => <span>{row.description}</span>,
 	},
@@ -84,7 +69,9 @@ const getColumns = (t, setOpenPolicy) => [
 		),
 		colStyle: { width: '16%' },
 		render: ({ row }) => (
-			<span>{row.unprivileged} / {row.privileged} ({row.total})</span>
+			<span>
+				{row.unprivileged} / {row.privileged} ({row.total})
+			</span>
 		),
 	},
 	{
@@ -94,11 +81,13 @@ const getColumns = (t, setOpenPolicy) => [
 				{t('ElasticAgent|Last updated')}
 			</span>
 		),
-		sort: 'updated_at',
 		colStyle: { width: '23%' },
-		render: ({ row }) => row.updated_at
-			? <DateTime value={row.updated_at} />
-			: <span className="text-muted">—</span>,
+		render: ({ row }) =>
+			row.updated_at ? (
+				<DateTime value={row.updated_at} />
+			) : (
+				<span className="text-muted">—</span>
+			),
 	},
 	{
 		colStyle: { width: '14%' },
@@ -128,7 +117,10 @@ export function PoliciesScreen() {
 	});
 
 	useEffect(() => {
-		if (firstTick.current) { firstTick.current = false; return; }
+		if (firstTick.current) {
+			firstTick.current = false;
+			return;
+		}
 		app.PubSub.publish('Application.reload!', { mode: 'transparent' });
 	}, [dataUpdatedAt]);
 

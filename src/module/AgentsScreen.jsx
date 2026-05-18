@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Container } from 'reactstrap';
 import { Link } from 'react-router';
 import { DataTableCard2, DateTime, usePubSub } from 'asab_webui_components';
 import { useQuery } from '@tanstack/react-query';
-import { getAgents } from '../services/fleetApi.js';
+import { getAgents, getPolicies } from '../services/fleetApi.js';
 import { makeFleetLoader, POLL_INTERVAL } from '../services/fleetLoader.js';
 import { STATUS_STYLE, UNKNOWN_STYLE, STATUS_KEY } from './agentStatus.js';
 
@@ -16,7 +16,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Host')}
 			</span>
 		),
-		sort: 'name',
 		colStyle: { width: '22%' },
 		render: ({ row }) => (
 			<Link to={`/agents/${row.id}`} state={{ from: 'agents' }}>
@@ -31,7 +30,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Status')}
 			</span>
 		),
-		sort: 'status',
 		colStyle: { width: '13%' },
 		render: ({ row }) => (
 			<span style={STATUS_STYLE[row.status] ?? UNKNOWN_STYLE}>
@@ -46,9 +44,13 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Policy')}
 			</span>
 		),
-		sort: 'policy',
 		colStyle: { width: '20%' },
-		render: ({ row }) => <span>{row.policy}</span>,
+		render: ({ row }) => (
+			<span>
+				{row.policy_name && <>{row.policy_name}<br /></>}
+				({row.policy_id})
+			</span>
+		),
 	},
 	{
 		title: (
@@ -57,7 +59,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Version')}
 			</span>
 		),
-		sort: 'version',
 		colStyle: { width: '12%' },
 		render: ({ row }) => <span>{row.version}</span>,
 	},
@@ -68,7 +69,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Last activity')}
 			</span>
 		),
-		sort: 'last_activity',
 		colStyle: { width: '20%' },
 		render: ({ row }) => <DateTime value={row.last_activity} />,
 	},
@@ -79,7 +79,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|OS')}
 			</span>
 		),
-		sort: 'os',
 		colStyle: { width: '13%' },
 		render: ({ row }) => <span>{row.os}</span>,
 	},
@@ -87,19 +86,12 @@ const getColumns = (t) => [
 
 const loader = makeFleetLoader(
 	getAgents,
-	{
-		name: 'local_metadata.host.hostname',
-		status: 'status',
-		policy: 'policy_id',
-		version: 'agent.version',
-		last_activity: 'last_checkin',
-		os: 'local_metadata.os.name',
-	},
-	(agent) => ({
+	(agent, policyMap = {}) => ({
 		id: agent.id,
 		name: agent.local_metadata?.host?.hostname ?? agent.id,
 		status: agent.status,
-		policy: agent.policy_id,
+		policy_id: agent.policy_id,
+		policy_name: policyMap[agent.policy_id] ?? null,
 		version: agent.agent?.version,
 		last_activity: agent.last_checkin,
 		os: agent.local_metadata?.os?.name,
@@ -117,6 +109,18 @@ export function AgentsScreen() {
 		staleTime: 0,
 	});
 
+	const { data: policiesData } = useQuery({
+		queryKey: ['policies-for-agents'],
+		queryFn: () => getPolicies({ perPage: 10000 }),
+		staleTime: POLL_INTERVAL,
+	});
+
+	const policyMap = useMemo(() => {
+		const map = {};
+		(policiesData?.items ?? []).forEach(p => { map[p.id] = p.name; });
+		return map;
+	}, [policiesData]);
+
 	useEffect(() => {
 		if (firstTick.current) { firstTick.current = false; return; }
 		app.PubSub.publish('Application.reload!', { mode: 'transparent' });
@@ -128,6 +132,7 @@ export function AgentsScreen() {
 				columns={getColumns(t)}
 				initialLimit={20}
 				loader={loader}
+				loaderParams={policyMap}
 				header={
 					<div>
 						<h5 className="mb-0">

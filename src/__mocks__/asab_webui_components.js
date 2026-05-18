@@ -1,19 +1,25 @@
 const React = require('react');
 
 module.exports = {
-	DateTime: ({ value }) => React.createElement('span', { 'data-testid': 'datetime' }, value),
+	DateTime: ({ value }) =>
+		React.createElement('span', { 'data-testid': 'datetime' }, value),
 	CopyableInput: ({ value }) =>
-		React.createElement('input', { type: 'text', defaultValue: value, readOnly: true }),
-	Spinner: () => React.createElement('div', { role: 'status', 'data-testid': 'spinner' }),
+		React.createElement('input', {
+			type: 'text',
+			defaultValue: value,
+			readOnly: true,
+		}),
+	Spinner: () =>
+		React.createElement('div', { role: 'status', 'data-testid': 'spinner' }),
 	usePubSub: () => ({ app: { PubSub: { publish: () => {} } } }),
-	DataTableCard2: ({ columns = [], loader, header }) => {
+	DataTableCard2: ({ columns = [], loader, loaderParams, header }) => {
 		const [rows, setRows] = React.useState([]);
 		React.useEffect(() => {
 			if (!loader) return;
-			loader({ params: {} })
+			loader({ params: {}, loaderParams })
 				.then(({ rows: r }) => setRows(r))
 				.catch(() => {});
-		}, []);
+		}, [loaderParams]);
 		return React.createElement(
 			'div',
 			{ 'data-testid': 'datatable' },
@@ -31,7 +37,8 @@ module.exports = {
 			),
 		);
 	},
-	DataTableFilter2: () => React.createElement('div', { 'data-testid': 'filter' }),
+	DataTableFilter2: () =>
+		React.createElement('div', { 'data-testid': 'filter' }),
 	DataTableAdvFilterSingleValue2: () => React.createElement('div'),
 	DataTableAdvFilterMultiValue2: () => React.createElement('div'),
 };
