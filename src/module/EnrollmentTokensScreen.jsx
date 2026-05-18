@@ -27,7 +27,6 @@ const getColumns = (t, setOpenToken) => [
 				{t('ElasticAgent|Token name')}
 			</span>
 		),
-		sort: 'name',
 		colStyle: { width: '20%' },
 		render: ({ row }) => <strong>{row.name}</strong>,
 	},
@@ -38,7 +37,6 @@ const getColumns = (t, setOpenToken) => [
 				{t('ElasticAgent|Policy')}
 			</span>
 		),
-		sort: 'policy',
 		colStyle: { width: '18%' },
 		render: ({ row }) => (
 			<span>
@@ -54,7 +52,6 @@ const getColumns = (t, setOpenToken) => [
 				{t('ElasticAgent|Active')}
 			</span>
 		),
-		sort: 'active',
 		colStyle: { width: '10%' },
 		render: ({ row }) => (
 			<span style={row.active ? ACTIVE_STYLE : INACTIVE_STYLE}>
@@ -69,7 +66,6 @@ const getColumns = (t, setOpenToken) => [
 				{t('ElasticAgent|Created at')}
 			</span>
 		),
-		sort: 'created_at',
 		colStyle: { width: '12%' },
 		render: ({ row }) => <DateTime value={row.created_at} />,
 	},
@@ -90,12 +86,6 @@ const getColumns = (t, setOpenToken) => [
 
 const loader = makeFleetLoader(
 	getEnrollmentTokens,
-	{
-		name: 'name',
-		policy: 'policy_id',
-		active: 'active',
-		created_at: 'created_at',
-	},
 	(token, policyMap = {}) => ({
 		id: token.id,
 		name: token.name,

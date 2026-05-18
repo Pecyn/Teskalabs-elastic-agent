@@ -20,8 +20,6 @@ export function getAgents(params = {}) {
 	const q = new URLSearchParams();
 	if (params.page)       q.set('page', params.page);
 	if (params.perPage)    q.set('perPage', params.perPage);
-	if (params.sort_field) q.set('sort_field', params.sort_field);
-	if (params.sort_order) q.set('sort_order', params.sort_order);
 	if (params.kuery)      q.set('kuery', params.kuery);
 	const qs = q.toString();
 	return request(`/api/fleet/agents${qs ? `?${qs}` : ''}`);
@@ -35,8 +33,6 @@ export function getPolicies(params = {}) {
 	const q = new URLSearchParams();
 	if (params.page)       q.set('page', params.page);
 	if (params.perPage)    q.set('perPage', params.perPage);
-	if (params.sort_field) q.set('sort_field', params.sort_field);
-	if (params.sort_order) q.set('sort_order', params.sort_order);
 	if (params.kuery)      q.set('kuery', params.kuery);
 	const qs = q.toString();
 	return request(`/api/fleet/agent_policies${qs ? `?${qs}` : ''}`);
@@ -88,8 +84,6 @@ export function getEnrollmentTokens(params = {}) {
 	const q = new URLSearchParams();
 	if (params.page)       q.set('page', params.page);
 	if (params.perPage)    q.set('perPage', params.perPage);
-	if (params.sort_field) q.set('sort_field', params.sort_field);
-	if (params.sort_order) q.set('sort_order', params.sort_order);
 	if (params.kuery)      q.set('kuery', params.kuery);
 	const qs = q.toString();
 	return request(`/api/fleet/enrollment_api_keys${qs ? `?${qs}` : ''}`);

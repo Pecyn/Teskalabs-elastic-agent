@@ -16,7 +16,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Host')}
 			</span>
 		),
-		sort: 'name',
 		colStyle: { width: '22%' },
 		render: ({ row }) => (
 			<Link to={`/agents/${row.id}`} state={{ from: 'agents' }}>
@@ -31,7 +30,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Status')}
 			</span>
 		),
-		sort: 'status',
 		colStyle: { width: '13%' },
 		render: ({ row }) => (
 			<span style={STATUS_STYLE[row.status] ?? UNKNOWN_STYLE}>
@@ -46,7 +44,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Policy')}
 			</span>
 		),
-		sort: 'policy',
 		colStyle: { width: '20%' },
 		render: ({ row }) => (
 			<span>
@@ -62,7 +59,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Version')}
 			</span>
 		),
-		sort: 'version',
 		colStyle: { width: '12%' },
 		render: ({ row }) => <span>{row.version}</span>,
 	},
@@ -73,7 +69,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|Last activity')}
 			</span>
 		),
-		sort: 'last_activity',
 		colStyle: { width: '20%' },
 		render: ({ row }) => <DateTime value={row.last_activity} />,
 	},
@@ -84,7 +79,6 @@ const getColumns = (t) => [
 				{t('ElasticAgent|OS')}
 			</span>
 		),
-		sort: 'os',
 		colStyle: { width: '13%' },
 		render: ({ row }) => <span>{row.os}</span>,
 	},
@@ -92,14 +86,6 @@ const getColumns = (t) => [
 
 const loader = makeFleetLoader(
 	getAgents,
-	{
-		name: 'local_metadata.host.hostname',
-		status: 'status',
-		policy: 'policy_id',
-		version: 'agent.version',
-		last_activity: 'last_checkin',
-		os: 'local_metadata.os.name',
-	},
 	(agent, policyMap = {}) => ({
 		id: agent.id,
 		name: agent.local_metadata?.host?.hostname ?? agent.id,
