@@ -15,7 +15,9 @@ async function loadPolicies({ params }) {
 	});
 
 	const policies = data.items ?? [];
-	const agentResults = await Promise.all(policies.map((p) => getAgentsByPolicy(p.id)));
+	const agentResults = await Promise.all(
+		policies.map((p) => getAgentsByPolicy(p.id)),
+	);
 
 	const rows = policies.map((policy, i) => {
 		const agents = agentResults[i].list ?? agentResults[i].items ?? [];
@@ -67,7 +69,9 @@ const getColumns = (t, setOpenPolicy) => [
 		),
 		colStyle: { width: '16%' },
 		render: ({ row }) => (
-			<span>{row.unprivileged} / {row.privileged} ({row.total})</span>
+			<span>
+				{row.unprivileged} / {row.privileged} ({row.total})
+			</span>
 		),
 	},
 	{
@@ -78,9 +82,12 @@ const getColumns = (t, setOpenPolicy) => [
 			</span>
 		),
 		colStyle: { width: '23%' },
-		render: ({ row }) => row.updated_at
-			? <DateTime value={row.updated_at} />
-			: <span className="text-muted">—</span>,
+		render: ({ row }) =>
+			row.updated_at ? (
+				<DateTime value={row.updated_at} />
+			) : (
+				<span className="text-muted">—</span>
+			),
 	},
 	{
 		colStyle: { width: '14%' },
@@ -110,7 +117,10 @@ export function PoliciesScreen() {
 	});
 
 	useEffect(() => {
-		if (firstTick.current) { firstTick.current = false; return; }
+		if (firstTick.current) {
+			firstTick.current = false;
+			return;
+		}
 		app.PubSub.publish('Application.reload!', { mode: 'transparent' });
 	}, [dataUpdatedAt]);
 
